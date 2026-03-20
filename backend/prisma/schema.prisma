@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  avatar    String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  watchHistory WatchHistory[]
+  favorites    Favorite[]
+  
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Anime {
+  id          String    @id @default(uuid())
+  title       String
+  titleEn     String?
+  description String?
+  poster      String
+  banner      String?
+  status      AnimeStatus @default(ONGOING)
+  type        AnimeType   @default(TV)
+  releaseDate DateTime?
+  rating      Float?
+  views       Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  genres      Genre[]
+  episodes    Episode[]
+  favorites   Favorite[]
+  
+  @@map("animes")
+}
+
+enum AnimeStatus {
+  ONGOING
+  COMPLETED
+  UPCOMING
+}
+
+enum AnimeType {
+  TV
+  MOVIE
+  OVA
+  ONA
+}
+
+model Genre {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  animes    Anime[]
+  
+  @@map("genres")
+}
+
+model Episode {
+  id          String   @id @default(uuid())
+  animeId     String
+  episodeNumber Int
+  title       String?
+  description String?
+  thumbnail   String?
+  videoUrl    String
+  duration    Int?     // seconds
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  anime       Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  watchHistory WatchHistory[]
+  
+  @@unique([animeId, episodeNumber])
+  @@map("episodes")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  animeId   String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime     Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, animeId])
+  @@map("favorites")
+}
+
+model WatchHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  episodeId  String
+  progress   Float    @default(0) // 0-1
+  watchedAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, episodeId])
+  @@map("watch_history")
+}
