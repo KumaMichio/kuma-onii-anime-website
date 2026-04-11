@@ -18,6 +18,26 @@ function computeAnimeStatus(currentEpisode: any): 'ONGOING' | 'COMPLETED' | 'UPC
   return 'ONGOING';
 }
 
+type GenreInfo = { slug: string; name: string };
+
+function extractGenresFromDetail(detail: any): GenreInfo[] {
+  const genres: GenreInfo[] = [];
+  const category = detail?.movie?.category ?? {};
+  for (const key of Object.keys(category)) {
+    const group = category[key]?.group;
+    const list = category[key]?.list;
+    const groupName = String(group?.name ?? '');
+    if (/thể loại/i.test(groupName) && Array.isArray(list)) {
+      for (const it of list) {
+        const slug = String(it?.id ?? '').trim();
+        const name = String(it?.name ?? '').trim();
+        if (slug) genres.push({ slug, name });
+      }
+    }
+  }
+  return genres;
+}
+
 @Injectable()
 export class UserMediaService {
   constructor(
@@ -40,7 +60,6 @@ export class UserMediaService {
     const id = movie.slug as string;
     const status = computeAnimeStatus(movie.current_episode);
 
-    // Minimal upsert: store only fields used by UI and foreign keys.
     return this.prisma.anime.upsert({
       where: { id },
       update: {
@@ -107,7 +126,6 @@ export class UserMediaService {
   }
 
   async toggleFavorite(userId: string, filmSlug: string) {
-    // Ensure foreign key exists.
     const anime = await this.ensureAnimeBySlug(filmSlug);
 
     const compositeKey = { userId, animeId: anime.id };
@@ -204,5 +222,126 @@ export class UserMediaService {
       watchedAt: w.watchedAt,
     }));
   }
-}
 
+  async getStats(userId: string) {
+    const [favoritesCount, watchedEpisodesCount] = await Promise.all([
+      this.prisma.favorite.count({ where: { userId } }),
+      this.prisma.watchHistory.count({ where: { userId } }),
+    ]);
+
+    // Unique anime watched
+    const watchRows = await this.prisma.watchHistory.findMany({
+      where: { userId },
+      select: { episode: { select: { animeId: true } } },
+    });
+    const uniqueAnimeIds = new Set(watchRows.map((w) => w.episode.animeId));
+
+    return {
+      favoritesCount,
+      watchedEpisodesCount,
+      uniqueAnimeWatchedCount: uniqueAnimeIds.size,
+    };
+  }
+
+  async getRecommendations(userId: string, limit = 12) {
+    // 1. Fetch user's recent watch history + favorites (top slugs to analyze)
+    const [watchRows, favoriteRows] = await Promise.all([
+      this.prisma.watchHistory.findMany({
+        where: { userId },
+        orderBy: { watchedAt: 'desc' },
+        take: 8,
+        include: { episode: { include: { anime: { select: { id: true } } } } },
+      }),
+      this.prisma.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        include: { anime: { select: { id: true } } },
+      }),
+    ]);
+
+    // Slugs the user has already interacted with (to exclude from recs)
+    const interactedSlugs = new Set<string>();
+    const slugsToAnalyze: string[] = [];
+
+    for (const w of watchRows) {
+      const slug = w.episode.anime.id;
+      interactedSlugs.add(slug);
+      if (slugsToAnalyze.length < 5) slugsToAnalyze.push(slug);
+    }
+    for (const f of favoriteRows) {
+      const slug = f.anime.id;
+      interactedSlugs.add(slug);
+      if (!slugsToAnalyze.includes(slug) && slugsToAnalyze.length < 8) slugsToAnalyze.push(slug);
+    }
+
+    // 2. No history → return popular updated films
+    if (slugsToAnalyze.length === 0) {
+      const updated = await this.sourceService.getFilmListUpdated(1);
+      return {
+        items: (updated.items ?? []).slice(0, limit),
+        basis: 'popular' as const,
+        topGenres: [] as GenreInfo[],
+      };
+    }
+
+    // 3. Aggregate genre preferences from user's films (all cached in Redis)
+    const genreFreq = new Map<string, { info: GenreInfo; count: number }>();
+    await Promise.allSettled(
+      [...new Set(slugsToAnalyze)].slice(0, 5).map(async (slug) => {
+        const detail = await this.sourceService.getFilmDetail(slug);
+        const genres = extractGenresFromDetail(detail);
+        for (const g of genres) {
+          const existing = genreFreq.get(g.slug);
+          if (existing) existing.count += 1;
+          else genreFreq.set(g.slug, { info: g, count: 1 });
+        }
+      }),
+    );
+
+    const topGenres = [...genreFreq.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+      .map((e) => e.info);
+
+    // 4. Fetch films from top genres, dedup against interacted slugs
+    const seen = new Set<string>(interactedSlugs);
+    const results: any[] = [];
+
+    for (const genre of topGenres) {
+      if (results.length >= limit) break;
+      try {
+        const genreFilms = await this.sourceService.getFilmListByTheLoai(genre.slug, 1);
+        for (const film of genreFilms.items ?? []) {
+          if (!seen.has(film.slug) && results.length < limit) {
+            seen.add(film.slug);
+            results.push(film);
+          }
+        }
+      } catch {
+        // ignore errors for individual genre fetches
+      }
+    }
+
+    // 5. Fallback: fill remainder with updated films
+    if (results.length < limit) {
+      try {
+        const updated = await this.sourceService.getFilmListUpdated(1);
+        for (const film of updated.items ?? []) {
+          if (!seen.has(film.slug) && results.length < limit) {
+            seen.add(film.slug);
+            results.push(film);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return {
+      items: results.slice(0, limit),
+      basis: topGenres.length > 0 ? ('personalized' as const) : ('popular' as const),
+      topGenres,
+    };
+  }
+}

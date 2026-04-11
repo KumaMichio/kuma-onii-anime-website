@@ -44,7 +44,7 @@ export const sourceAPI = {
   getFilmDetail: (slug: string) => api.get(`/source/film/${encodeURIComponent(slug)}`),
 };
 
-// User persistence (favorites / watch progress)
+// User persistence (favorites / watch progress / personalization)
 export const userMediaAPI = {
   toggleFavorite: (filmSlug: string) => api.post(`/user-media/favorites/${encodeURIComponent(filmSlug)}`),
   listFavorites: () => api.get('/user-media/favorites'),
@@ -53,11 +53,12 @@ export const userMediaAPI = {
 
   updateProgress: (payload: { filmSlug: string; episodeNumber: number; progress: number }) =>
     api.post('/user-media/watch/progress', payload),
-
   getProgress: (params: { filmSlug: string; episodeNumber: number }) =>
     api.get('/user-media/watch/progress', { params }),
-
   getContinueWatching: (params?: { limit?: number }) =>
     api.get('/user-media/watch/continue', { params: params ?? {} }),
-};
 
+  getStats: () => api.get('/user-media/stats'),
+  getRecommendations: (limit = 12) =>
+    api.get('/user-media/recommendations', { params: { limit } }),
+};

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserMediaService } from './user-media.service';
 import type { Request } from 'express';
@@ -62,5 +62,17 @@ export class UserMediaController {
     const l = limit ? parseInt(limit, 10) : 20;
     return this.userMediaService.getContinueWatching(userId, l);
   }
-}
 
+  @Get('stats')
+  getStats(@Req() req: Request) {
+    const userId = this.getUserId(req);
+    return this.userMediaService.getStats(userId);
+  }
+
+  @Get('recommendations')
+  getRecommendations(@Req() req: Request, @Query('limit') limit?: string) {
+    const userId = this.getUserId(req);
+    const l = limit ? Math.min(parseInt(limit, 10), 24) : 12;
+    return this.userMediaService.getRecommendations(userId, l);
+  }
+}

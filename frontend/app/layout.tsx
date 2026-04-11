@@ -3,6 +3,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/lib/react-query';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+import Navbar from '@/components/Navbar';
 import './globals.css';
 
 export default function RootLayout({
@@ -14,8 +17,13 @@ export default function RootLayout({
     <html lang="vi">
       <body>
         <QueryClientProvider client={queryClient}>
-          {children}
-          <ReactQueryDevtools initialIsOpen={false} />
+          <AuthProvider>
+            <ToastProvider>
+              <Navbar />
+              <main>{children}</main>
+              <ReactQueryDevtools initialIsOpen={false} />
+            </ToastProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </body>
     </html>
