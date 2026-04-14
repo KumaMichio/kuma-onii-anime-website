@@ -15,10 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body>
+      <body style={{ background: '#141414', margin: 0 }}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <ToastProvider>
+              {/* Fixed navbar overlays on top — pages control their own top padding */}
               <Navbar />
               <main>{children}</main>
               <ReactQueryDevtools initialIsOpen={false} />

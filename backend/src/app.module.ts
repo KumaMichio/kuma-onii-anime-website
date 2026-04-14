@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { createKeyv } from '@keyv/redis';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AnimeModule } from './anime/anime.module';
@@ -15,9 +16,9 @@ import { UserMediaModule } from './user-media/user-media.module';
     ConfigModule.forRoot({ isGlobal: true }),
     CacheModule.register({
       isGlobal: true,
-      store: 'redis',
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379,
+      stores: [
+        createKeyv(`redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`),
+      ],
     }),
     ThrottlerModule.forRoot([{
       ttl: 60000,

@@ -1,14 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Cookies from 'js-cookie';
+import Link from 'next/link';
 
 import AnimeCard from '@/components/AnimeCard';
 import { sourceAPI, userMediaAPI } from '@/lib/api';
 
-// Popular filters — slugs must match phim.nguonc.com API
 const GENRES = [
   { slug: 'hanh-dong', name: 'Hành Động' },
   { slug: 'tinh-cam', name: 'Tình Cảm' },
@@ -39,6 +39,104 @@ const YEARS = ['2025', '2024', '2023', '2022', '2021', '2020'];
 
 type FilterTab = 'genre' | 'country' | 'year';
 
+/* ─────────────────────────────────────────
+   Horizontal carousel row component
+   ───────────────────────────────────────── */
+function NfRow({ title, viewAllHref, children }: {
+  title: string;
+  viewAllHref?: string;
+  children: React.ReactNode;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  function scroll(dir: 'left' | 'right') {
+    if (!rowRef.current) return;
+    rowRef.current.scrollBy({
+      left: dir === 'right' ? rowRef.current.clientWidth * 0.75 : -rowRef.current.clientWidth * 0.75,
+      behavior: 'smooth',
+    });
+  }
+
+  return (
+    <section className="section">
+      {/* Row header */}
+      <div className="site-container">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h2 className="section-title" style={{ margin: 0 }}>{title}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {viewAllHref && (
+              <Link
+                href={viewAllHref}
+                style={{ fontSize: 13, fontWeight: 600, color: '#E50914', textDecoration: 'none' }}
+              >
+                Xem tất cả
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => scroll('left')}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => scroll('right')}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable row — full width so edge-to-edge scroll, padded inside */}
+      <div
+        ref={rowRef}
+        className="nf-row"
+        style={{ paddingLeft: 'max(16px, calc((100vw - 1280px) / 2 + 48px))', paddingRight: 16 }}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Skeleton card
+   ───────────────────────────────────────── */
+function CardSkeleton() {
+  return (
+    <div className="nf-row-card" style={{ flexShrink: 0 }}>
+      <div className="skeleton" style={{ aspectRatio: '2/3', width: '100%', borderRadius: 6 }} />
+      <div className="skeleton" style={{ height: 12, marginTop: 8, width: '70%', borderRadius: 4 }} />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Grid skeleton
+   ───────────────────────────────────────── */
+function GridSkeleton({ count = 12 }: { count?: number }) {
+  return (
+    <div className="movie-grid">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i}>
+          <div className="skeleton" style={{ aspectRatio: '2/3', width: '100%', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 12, marginTop: 8, width: '65%', borderRadius: 4 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Main HomeClient component
+   ───────────────────────────────────────── */
 export default function HomeClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,31 +147,35 @@ export default function HomeClient() {
     return Number.isFinite(n) && n > 0 ? n : 1;
   }, [searchParams]);
 
-  const keyword = searchParams.get('keyword') ?? '';
-  const theLoai = searchParams.get('theLoai') ?? '';
-  const quocGia = searchParams.get('quocGia') ?? '';
-  const nam = searchParams.get('nam') ?? '';
+  const keyword  = searchParams.get('keyword')  ?? '';
+  const theLoai  = searchParams.get('theLoai')  ?? '';
+  const quocGia  = searchParams.get('quocGia')  ?? '';
+  const nam      = searchParams.get('nam')      ?? '';
 
   const [keywordInput, setKeywordInput] = useState(keyword);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterTab, setFilterTab] = useState<FilterTab>('genre');
+  const [filterOpen, setFilterOpen]     = useState(false);
+  const [filterTab, setFilterTab]       = useState<FilterTab>('genre');
+  const [heroIdx]                       = useState(() => Math.floor(Math.random() * 5));
 
+  const hasActiveFilter = !!(keyword || theLoai || quocGia || nam);
+
+  /* ── Queries ── */
   const filmsQuery = useQuery({
     queryKey: ['films', page, keyword, theLoai, quocGia, nam],
     queryFn: async () => {
-      if (keyword.trim()) return sourceAPI.searchFilms(keyword.trim()).then((r) => r.data);
-      if (theLoai) return sourceAPI.getFilmsTheLoai(theLoai, page).then((r) => r.data);
-      if (quocGia) return sourceAPI.getFilmsQuocGia(quocGia, page).then((r) => r.data);
-      if (nam) return sourceAPI.getFilmsNamPhatHanh(nam, page).then((r) => r.data);
-      return sourceAPI.getFilmsUpdated(page).then((r) => r.data);
+      if (keyword.trim()) return sourceAPI.searchFilms(keyword.trim()).then(r => r.data);
+      if (theLoai)        return sourceAPI.getFilmsTheLoai(theLoai, page).then(r => r.data);
+      if (quocGia)        return sourceAPI.getFilmsQuocGia(quocGia, page).then(r => r.data);
+      if (nam)            return sourceAPI.getFilmsNamPhatHanh(nam, page).then(r => r.data);
+      return sourceAPI.getFilmsUpdated(page).then(r => r.data);
     },
-    placeholderData: (prev) => prev,
+    placeholderData: prev => prev,
     retry: 2,
   });
 
   const suggestionsQuery = useQuery({
     queryKey: ['film-suggestions', keywordInput],
-    queryFn: () => sourceAPI.searchFilms(keywordInput.trim()).then((r) => r.data),
+    queryFn: () => sourceAPI.searchFilms(keywordInput.trim()).then(r => r.data),
     enabled: keywordInput.trim().length >= 2 && keywordInput.trim() !== keyword.trim(),
     retry: 1,
   });
@@ -82,34 +184,36 @@ export default function HomeClient() {
 
   const continueQuery = useQuery({
     queryKey: ['watch', 'continue'],
-    queryFn: () => userMediaAPI.getContinueWatching({ limit: 6 }).then((r) => r.data),
+    queryFn: () => userMediaAPI.getContinueWatching({ limit: 12 }).then(r => r.data),
     enabled: !!token,
     retry: 0,
   });
 
   const recsQuery = useQuery({
     queryKey: ['recommendations'],
-    queryFn: () => userMediaAPI.getRecommendations(12).then((r) => r.data),
+    queryFn: () => userMediaAPI.getRecommendations(12).then(r => r.data),
     enabled: !!token,
     retry: 0,
     staleTime: 10 * 60 * 1000,
   });
 
-  const items = filmsQuery.data?.items ?? [];
+  const items    = filmsQuery.data?.items ?? [];
   const paginate = filmsQuery.data?.paginate;
 
-  // Build active filter label
-  const activeFilterLabel = (() => {
+  // Hero picks the film at heroIdx from the loaded list
+  const heroFilm = !hasActiveFilter && items.length > 0 ? items[heroIdx % items.length] : null;
+
+  const activeLabel = (() => {
     if (keyword.trim()) return `Kết quả: "${keyword.trim()}"`;
-    if (theLoai) return `Thể loại: ${GENRES.find((g) => g.slug === theLoai)?.name ?? theLoai}`;
-    if (quocGia) return `Quốc gia: ${COUNTRIES.find((c) => c.slug === quocGia)?.name ?? quocGia}`;
-    if (nam) return `Năm: ${nam}`;
+    if (theLoai)        return GENRES.find(g => g.slug === theLoai)?.name ?? theLoai;
+    if (quocGia)        return COUNTRIES.find(c => c.slug === quocGia)?.name ?? quocGia;
+    if (nam)            return `Năm ${nam}`;
     return 'Phim mới cập nhật';
   })();
 
   function applyFilter(type: 'theLoai' | 'quocGia' | 'nam', slug: string) {
     const current = searchParams.get(type);
-    const params = new URLSearchParams();
+    const params  = new URLSearchParams();
     params.set('page', '1');
     if (current !== slug) params.set(type, slug);
     router.push(`/?${params.toString()}`);
@@ -122,57 +226,164 @@ export default function HomeClient() {
     setFilterOpen(false);
   }
 
-  const hasActiveFilter = !!(keyword || theLoai || quocGia || nam);
+  function navigate(delta: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', String((paginate?.current_page ?? page) + delta));
+    router.push(`/?${params.toString()}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
+  /* ══════════════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-8">
+    <div style={{ background: 'var(--c-bg)', minHeight: '100vh' }}>
 
-        {/* Search + Filter row */}
-        <div className="mb-6 flex gap-2">
-          <div className="relative flex-1">
+      {/* ══ HERO BANNER — 65vh, hard-capped ══ */}
+      {!hasActiveFilter && (
+        <div className="hero">
+          {heroFilm ? (
+            <>
+              <img
+                src={heroFilm.thumb_url || heroFilm.poster_url}
+                alt={heroFilm.name}
+                className="hero__bg"
+              />
+
+              {/* Dual-layer gradient overlay — ensures text & buttons are always readable */}
+              <div className="hero__overlay" />
+
+              {/* Content — bottom-left, z-index 2, above everything */}
+              <div className="hero__content nf-fade-in">
+                <div style={{ maxWidth: 560 }}>
+                  {/* Meta badges */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    {heroFilm.quality && (
+                      <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, border: '1px solid #E50914', color: '#E50914', borderRadius: 3 }}>
+                        {heroFilm.quality}
+                      </span>
+                    )}
+                    {heroFilm.current_episode && (
+                      <span style={{ padding: '2px 8px', fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.12)', color: '#fff', borderRadius: 3 }}>
+                        {heroFilm.current_episode}
+                      </span>
+                    )}
+                  </div>
+
+                  <h1 style={{ fontSize: 'clamp(26px, 4vw, 48px)', fontWeight: 900, color: '#fff', lineHeight: 1.1, margin: '0 0 10px', textShadow: '0 2px 16px rgba(0,0,0,0.7)' }}>
+                    {heroFilm.name}
+                  </h1>
+
+                  {heroFilm.original_name && heroFilm.original_name !== heroFilm.name && (
+                    <p style={{ fontSize: 13, color: '#b3b3b3', margin: '0 0 12px' }}>{heroFilm.original_name}</p>
+                  )}
+
+                  {/* Action buttons — always at z-index 10 via .btn-* classes */}
+                  <div className="hero__actions">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => router.push(`/anime/${heroFilm.slug}`)}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="black">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      Xem ngay
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => router.push(`/anime/${heroFilm.slug}`)}
+                    >
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Chi tiết
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            // Hero skeleton
+            <div className="skeleton" style={{ position: 'absolute', inset: 0 }} />
+          )}
+
+          {/* Bottom bleed fade into page background */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, background: 'linear-gradient(to top, var(--c-bg), transparent)', zIndex: 2, pointerEvents: 'none' }} />
+        </div>
+      )}
+
+      {/* Spacer when no hero (filter active) */}
+      {hasActiveFilter && <div style={{ height: 80 }} />}
+
+      {/* ══ SEARCH + FILTER BAR ══ */}
+      <div className="site-container" style={{ marginBottom: 32 }}>
+        <div style={{ display: 'flex', gap: 8, maxWidth: 640 }}>
+
+          {/* Search input */}
+          <div style={{ position: 'relative', flex: 1 }}>
+            <svg
+              style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-text-muted)' }}
+              width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               value={keywordInput}
-              onChange={(e) => setKeywordInput(e.target.value)}
-              onKeyDown={(e) => {
+              onChange={e => setKeywordInput(e.target.value)}
+              onKeyDown={e => {
                 if (e.key === 'Enter' && keywordInput.trim()) {
-                  const params = new URLSearchParams();
-                  params.set('keyword', keywordInput.trim());
-                  params.set('page', '1');
-                  router.push(`/?${params.toString()}`);
+                  const p = new URLSearchParams();
+                  p.set('keyword', keywordInput.trim());
+                  p.set('page', '1');
+                  router.push(`/?${p.toString()}`);
                 }
               }}
-              placeholder="Tìm phim... (Enter để tìm)"
-              className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+              placeholder="Tìm phim, thể loại, diễn viên..."
+              style={{
+                width: '100%',
+                paddingLeft: 40, paddingRight: 16, paddingTop: 11, paddingBottom: 11,
+                background: '#1a1a1a',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 4,
+                color: '#fff',
+                fontSize: 14,
+                outline: 'none',
+              }}
             />
 
-            {suggestionsQuery.isFetching && (
-              <div className="absolute right-3 top-3.5 text-xs text-gray-400">Đang tìm...</div>
-            )}
-
-            {suggestionsQuery.data?.items?.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-xl">
+            {/* Suggestions dropdown */}
+            {(suggestionsQuery.data?.items?.length ?? 0) > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 50,
+                background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', overflow: 'hidden',
+              }}>
                 {suggestionsQuery.data.items.slice(0, 8).map((it: any) => (
                   <button
                     key={it.slug}
                     type="button"
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-700 flex items-center gap-3 border-b border-gray-700/50 last:border-0"
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '10px 16px',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#fff',
+                    }}
+                    onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                    onMouseOut={e => (e.currentTarget.style.background = 'none')}
                     onClick={() => {
                       setKeywordInput(it.name);
-                      const params = new URLSearchParams();
-                      params.set('keyword', it.name);
-                      params.set('page', '1');
-                      router.push(`/?${params.toString()}`);
+                      const p = new URLSearchParams();
+                      p.set('keyword', it.name);
+                      p.set('page', '1');
+                      router.push(`/?${p.toString()}`);
                     }}
                   >
-                    <img
-                      src={it.thumb_url}
-                      alt={it.name}
-                      className="w-10 h-14 object-cover rounded flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="font-semibold line-clamp-1 text-sm">{it.name}</div>
-                      <div className="text-xs text-gray-400">{it.total_episodes ?? '-'} tập</div>
+                    <img src={it.thumb_url} alt={it.name} style={{ width: 32, height: 48, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{it.name}</div>
+                      <div style={{ fontSize: 11, color: '#808080' }}>{it.total_episodes ?? '-'} tập</div>
                     </div>
                   </button>
                 ))}
@@ -180,240 +391,219 @@ export default function HomeClient() {
             )}
           </div>
 
-          {/* Filter toggle */}
+          {/* Filter button */}
           <button
             type="button"
-            onClick={() => setFilterOpen((v) => !v)}
-            className={`px-4 py-3 rounded-lg border transition-colors flex items-center gap-2 text-sm font-medium
-              ${filterOpen ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white'}`}
+            onClick={() => setFilterOpen(v => !v)}
+            style={{
+              padding: '11px 16px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)',
+              background: filterOpen ? '#E50914' : '#1a1a1a',
+              color: filterOpen ? '#fff' : '#b3b3b3',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              whiteSpace: 'nowrap',
+            }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 12h10M11 20h2" />
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 12h10M11 20h2" />
             </svg>
-            Lọc
+            Bộ lọc
             {hasActiveFilter && !keyword && (
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
             )}
           </button>
+
+          {hasActiveFilter && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              style={{
+                padding: '11px 14px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)',
+                background: '#1a1a1a', color: '#808080', fontSize: 13, cursor: 'pointer',
+              }}
+            >
+              ✕ Xóa
+            </button>
+          )}
         </div>
 
         {/* Filter panel */}
         {filterOpen && (
-          <div className="mb-6 bg-gray-800 border border-gray-700 rounded-xl p-5">
+          <div style={{
+            marginTop: 8, padding: 20, background: '#141414',
+            border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6,
+            maxWidth: 640,
+          }}>
             {/* Tab bar */}
-            <div className="flex gap-1 mb-4 border-b border-gray-700 pb-3">
-              {(['genre', 'country', 'year'] as FilterTab[]).map((tab) => (
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+              {(['genre', 'country', 'year'] as FilterTab[]).map(tab => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setFilterTab(tab)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                    ${filterTab === tab ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                  style={{
+                    padding: '6px 14px', borderRadius: 4, border: 'none',
+                    background: filterTab === tab ? '#E50914' : 'rgba(255,255,255,0.07)',
+                    color: filterTab === tab ? '#fff' : '#808080',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  }}
                 >
                   {tab === 'genre' ? 'Thể loại' : tab === 'country' ? 'Quốc gia' : 'Năm'}
                 </button>
               ))}
-              {hasActiveFilter && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="ml-auto px-3 py-1.5 text-sm text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Xóa bộ lọc
-                </button>
-              )}
             </div>
 
-            {filterTab === 'genre' && (
-              <div className="flex flex-wrap gap-2">
-                {GENRES.map((g) => (
+            {/* Chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {(filterTab === 'genre' ? GENRES : filterTab === 'country' ? COUNTRIES : YEARS.map(y => ({ slug: y, name: y }))).map(item => {
+                const slug   = item.slug;
+                const active = filterTab === 'genre' ? theLoai === slug : filterTab === 'country' ? quocGia === slug : nam === slug;
+                return (
                   <button
-                    key={g.slug}
+                    key={slug}
                     type="button"
-                    onClick={() => applyFilter('theLoai', g.slug)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors
-                      ${theLoai === g.slug
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
+                    onClick={() => applyFilter(filterTab === 'genre' ? 'theLoai' : filterTab === 'country' ? 'quocGia' : 'nam', slug)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 20, border: 'none',
+                      background: active ? '#E50914' : 'rgba(255,255,255,0.08)',
+                      color: active ? '#fff' : '#b3b3b3',
+                      fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    }}
                   >
-                    {g.name}
+                    {item.name}
                   </button>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
-            {filterTab === 'country' && (
-              <div className="flex flex-wrap gap-2">
-                {COUNTRIES.map((c) => (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    onClick={() => applyFilter('quocGia', c.slug)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors
-                      ${quocGia === c.slug
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
+      {/* ══ CONTINUE WATCHING (logged in, no filter) ══ */}
+      {token && !hasActiveFilter && (continueQuery.data ?? []).length > 0 && (
+        <NfRow title="Tiếp tục xem">
+          {(continueQuery.data ?? []).map((it: any) => (
+            <div key={`${it.slug}:${it.episodeNumber}`} className="nf-row-card">
+              <AnimeCard
+                anime={{ id: it.slug, title: it.title, poster: it.poster_url }}
+                progress={it.progress}
+                episodeNumber={it.episodeNumber}
+              />
+            </div>
+          ))}
+        </NfRow>
+      )}
 
-            {filterTab === 'year' && (
-              <div className="flex flex-wrap gap-2">
-                {YEARS.map((y) => (
-                  <button
-                    key={y}
-                    type="button"
-                    onClick={() => applyFilter('nam', y)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors
-                      ${nam === y
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
-            )}
+      {/* ══ RECOMMENDATIONS (logged in, no filter) ══ */}
+      {token && !hasActiveFilter && (recsQuery.data?.items ?? []).length > 0 && (
+        <NfRow title={recsQuery.data?.basis === 'personalized' ? 'Gợi ý cho bạn' : 'Phim nổi bật'}>
+          {recsQuery.isLoading
+            ? Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} />)
+            : (recsQuery.data?.items ?? []).map((film: any) => (
+                <div key={film.slug} className="nf-row-card">
+                  <AnimeCard anime={{ id: film.slug, title: film.name, poster: film.poster_url }} />
+                </div>
+              ))}
+        </NfRow>
+      )}
+
+      {/* ══ GENRE QUICK PILLS (no filter) ══ */}
+      {!hasActiveFilter && (
+        <div className="site-container" style={{ marginBottom: 32 }}>
+          <div className="nf-row" style={{ gap: 8 }}>
+            {GENRES.map(g => (
+              <button
+                key={g.slug}
+                type="button"
+                onClick={() => applyFilter('theLoai', g.slug)}
+                style={{
+                  padding: '6px 16px', borderRadius: 20, whiteSpace: 'nowrap',
+                  border: '1px solid rgba(255,255,255,0.15)', background: 'none',
+                  color: '#b3b3b3', fontSize: 13, cursor: 'pointer',
+                }}
+                onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+                onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; (e.currentTarget as HTMLButtonElement).style.color = '#b3b3b3'; }}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ══ MAIN GRID ══ */}
+      <div className="site-container" style={{ paddingBottom: 64 }}>
+
+        {/* Grid header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 className="section-title" style={{ margin: 0 }}>{activeLabel}</h2>
+          {paginate && (
+            <span style={{ fontSize: 13, color: 'var(--c-text-muted)' }}>
+              Trang {paginate.current_page} / {paginate.total_page}
+            </span>
+          )}
+        </div>
+
+        {/* Grid or states */}
+        {filmsQuery.isLoading ? (
+          <GridSkeleton count={12} />
+        ) : filmsQuery.isError ? (
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <p style={{ color: 'var(--c-text-muted)', marginBottom: 16 }}>Không tải được danh sách phim.</p>
+            <button type="button" className="btn-red" onClick={() => filmsQuery.refetch()}>Thử lại</button>
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <p style={{ color: 'var(--c-text-muted)', marginBottom: 16 }}>Không tìm thấy phim nào.</p>
+            <button type="button" onClick={clearFilters} style={{ color: 'var(--c-text-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: 14 }}>
+              Xóa bộ lọc
+            </button>
+          </div>
+        ) : (
+          <div className="movie-grid">
+            {items.map((film: any) => (
+              <AnimeCard
+                key={film.slug}
+                anime={{ id: film.slug, title: film.name, poster: film.poster_url }}
+              />
+            ))}
           </div>
         )}
 
-        {/* Continue watching */}
-        {token && (continueQuery.data ?? []).length > 0 && (
-          <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4">Tiếp tục xem</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {(continueQuery.data ?? []).map((it: any) => (
-                <div key={`${it.slug}:${it.episodeNumber}`} className="relative">
-                  <AnimeCard
-                    anime={{ id: it.slug, title: it.title, poster: it.poster_url }}
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700 rounded-b">
-                    <div
-                      className="h-full bg-blue-500 rounded-b"
-                      style={{ width: `${Math.round((it.progress ?? 0) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="absolute top-1 right-1 bg-black/70 text-xs text-white px-1.5 py-0.5 rounded">
-                    Tập {it.episodeNumber}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Personalized recommendations */}
-        {token && !hasActiveFilter && (recsQuery.data?.items ?? []).length > 0 && (
-          <section className="mb-10">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-xl font-semibold">
-                {recsQuery.data?.basis === 'personalized' ? 'Gợi ý cho bạn' : 'Phim nổi bật'}
-              </h2>
-              {recsQuery.data?.basis === 'personalized' && recsQuery.data?.topGenres?.length > 0 && (
-                <div className="flex gap-1.5 flex-wrap">
-                  {recsQuery.data.topGenres.slice(0, 3).map((g: { slug: string; name: string }) => (
-                    <span key={g.slug} className="px-2 py-0.5 text-xs bg-blue-900/50 border border-blue-700/50 text-blue-300 rounded-full">
-                      {g.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {recsQuery.isLoading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="rounded-lg bg-gray-800 animate-pulse h-48" />
-                  ))
-                : (recsQuery.data?.items ?? []).slice(0, 12).map((film: any) => (
-                    <AnimeCard
-                      key={film.slug}
-                      anime={{ id: film.slug, title: film.name, poster: film.poster_url }}
-                    />
-                  ))}
-            </div>
-          </section>
-        )}
-
-        {/* Main films grid */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">{activeFilterLabel}</h2>
-            <div className="text-sm text-gray-400">
-              Trang {paginate?.current_page ?? page} / {paginate?.total_page ?? '-'}
-            </div>
+        {/* Pagination */}
+        {!filmsQuery.isError && items.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 48 }}>
+            <button
+              type="button"
+              disabled={(paginate?.current_page ?? page) <= 1}
+              onClick={() => navigate(-1)}
+              style={{
+                padding: '10px 24px', borderRadius: 4, border: 'none',
+                background: 'rgba(255,255,255,0.08)', color: '#fff',
+                fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                opacity: (paginate?.current_page ?? page) <= 1 ? 0.3 : 1,
+              }}
+            >
+              ← Trang trước
+            </button>
+            <span style={{ fontSize: 14, color: 'var(--c-text-muted)', padding: '0 12px', minWidth: 80, textAlign: 'center' }}>
+              {paginate?.current_page ?? page} / {paginate?.total_page ?? '?'}
+            </span>
+            <button
+              type="button"
+              disabled={(paginate?.current_page ?? page) >= (paginate?.total_page ?? page)}
+              onClick={() => navigate(1)}
+              style={{
+                padding: '10px 24px', borderRadius: 4, border: 'none',
+                background: 'rgba(255,255,255,0.08)', color: '#fff',
+                fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                opacity: (paginate?.current_page ?? page) >= (paginate?.total_page ?? page) ? 0.3 : 1,
+              }}
+            >
+              Trang sau →
+            </button>
           </div>
-
-          {filmsQuery.isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {Array.from({ length: 10 }).map((_, idx) => (
-                <div key={idx} className="rounded-lg bg-gray-800 animate-pulse h-64" />
-              ))}
-            </div>
-          ) : filmsQuery.isError ? (
-            <div className="text-gray-300 bg-gray-800 border border-gray-700 rounded-lg p-4">
-              Không tải được danh sách phim.{' '}
-              <button
-                type="button"
-                className="underline hover:text-white"
-                onClick={() => filmsQuery.refetch()}
-              >
-                Thử lại
-              </button>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="text-gray-400 py-12 text-center">
-              Không tìm thấy phim nào.{' '}
-              <button type="button" className="underline hover:text-white" onClick={clearFilters}>
-                Xóa bộ lọc
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {items.map((film: any) => (
-                <AnimeCard
-                  key={film.slug}
-                  anime={{ id: film.slug, title: film.name, poster: film.poster_url }}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {!filmsQuery.isError && items.length > 0 && (
-            <div className="flex items-center justify-center gap-4 mt-8">
-              <button
-                type="button"
-                className="px-5 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 transition-colors"
-                disabled={(paginate?.current_page ?? page) <= 1}
-                onClick={() => {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('page', String((paginate?.current_page ?? page) - 1));
-                  router.push(`/?${params.toString()}`);
-                }}
-              >
-                ← Trước
-              </button>
-              <span className="text-sm text-gray-400">
-                {paginate?.current_page ?? page} / {paginate?.total_page ?? '?'}
-              </span>
-              <button
-                type="button"
-                className="px-5 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 transition-colors"
-                disabled={(paginate?.current_page ?? page) >= (paginate?.total_page ?? page)}
-                onClick={() => {
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.set('page', String((paginate?.current_page ?? page) + 1));
-                  router.push(`/?${params.toString()}`);
-                }}
-              >
-                Sau →
-              </button>
-            </div>
-          )}
-        </section>
+        )}
       </div>
     </div>
   );

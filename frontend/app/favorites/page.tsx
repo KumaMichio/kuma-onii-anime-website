@@ -18,44 +18,68 @@ export default function FavoritesPage() {
   });
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Phim yêu thích</h1>
+    <div className="min-h-screen pt-20 pb-16 px-6 md:px-12" style={{ background: '#141414' }}>
 
-        {!token ? (
-          <div className="text-center py-16">
-            <p className="text-gray-400 mb-4">Đăng nhập để xem danh sách yêu thích.</p>
-            <Link href="/login" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors">
-              Đăng nhập
-            </Link>
-          </div>
-        ) : favoritesQuery.isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, idx) => (
-              <div key={idx} className="rounded-lg bg-gray-800 animate-pulse h-64" />
-            ))}
-          </div>
-        ) : (favoritesQuery.data ?? []).length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-400 mb-4">Bạn chưa yêu thích phim nào.</p>
-            <Link href="/" className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm">
-              Khám phá phim
-            </Link>
-          </div>
-        ) : (
-          <>
-            <p className="text-gray-400 text-sm mb-4">{(favoritesQuery.data ?? []).length} phim</p>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {(favoritesQuery.data ?? []).map((f: any) => (
-                <AnimeCard
-                  key={f.slug}
-                  anime={{ id: f.slug, title: f.title, poster: f.poster_url }}
-                />
-              ))}
-            </div>
-          </>
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-white mb-1">Danh sách yêu thích</h1>
+        {(favoritesQuery.data ?? []).length > 0 && (
+          <p className="text-sm" style={{ color: '#808080' }}>
+            {(favoritesQuery.data ?? []).length} phim
+          </p>
         )}
       </div>
+
+      {!token ? (
+        <div className="flex flex-col items-center justify-center py-24">
+          <svg className="w-16 h-16 mb-4" style={{ color: '#333' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          <p className="text-lg font-semibold text-white mb-2">Bạn chưa đăng nhập</p>
+          <p className="text-sm mb-6" style={{ color: '#808080' }}>Đăng nhập để lưu phim yêu thích</p>
+          <Link
+            href="/login"
+            className="px-6 py-3 font-bold text-white text-sm rounded transition-all hover:opacity-90"
+            style={{ background: '#E50914' }}
+          >
+            Đăng nhập
+          </Link>
+        </div>
+
+      ) : favoritesQuery.isLoading ? (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+          {Array.from({ length: 14 }).map((_, idx) => (
+            <div key={idx} className="aspect-[2/3] rounded-sm animate-pulse" style={{ background: '#1f1f1f' }} />
+          ))}
+        </div>
+
+      ) : (favoritesQuery.data ?? []).length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24">
+          <svg className="w-16 h-16 mb-4" style={{ color: '#333' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          <p className="text-lg font-semibold text-white mb-2">Chưa có phim yêu thích</p>
+          <p className="text-sm mb-6" style={{ color: '#808080' }}>Khám phá và thêm phim vào danh sách</p>
+          <Link
+            href="/"
+            className="px-6 py-3 font-bold text-white text-sm rounded transition-all hover:bg-white/10"
+            style={{ background: 'rgba(109,109,110,0.7)' }}
+          >
+            Khám phá phim
+          </Link>
+        </div>
+
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+          {(favoritesQuery.data ?? []).map((f: any) => (
+            <AnimeCard
+              key={f.slug}
+              anime={{ id: f.slug, title: f.title, poster: f.poster_url }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -40,71 +40,101 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-gray-900 flex items-center justify-center px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-xl w-full max-w-md border border-gray-700"
-      >
-        <h2 className="text-2xl font-bold mb-2 text-white">Đăng ký</h2>
-        <p className="text-gray-400 text-sm mb-6">
-          Đã có tài khoản?{' '}
-          <Link href="/login" className="text-blue-400 hover:text-blue-300">
-            Đăng nhập
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: '#141414' }}
+    >
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-10 blur-3xl"
+          style={{ background: '#E50914' }}
+        />
+        <div
+          className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-10 blur-3xl"
+          style={{ background: '#E50914' }}
+        />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link href="/" className="text-3xl font-black tracking-tighter" style={{ color: '#E50914' }}>
+            KUMA<span className="text-white">ONII</span>
           </Link>
-        </p>
-
-        {error && (
-          <div className="bg-red-900/40 border border-red-700 text-red-300 text-sm rounded-lg px-4 py-3 mb-4">
-            {error}
-          </div>
-        )}
-
-        <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-1">Email</label>
-          <input
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-1">Tên người dùng</label>
-          <input
-            type="text"
-            placeholder="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            minLength={3}
-          />
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm text-gray-400 mb-1">Mật khẩu</label>
-          <input
-            type="password"
-            placeholder="Ít nhất 6 ký tự"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            minLength={6}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold rounded-lg transition-colors"
+        <form
+          onSubmit={handleSubmit}
+          className="px-10 py-10 rounded-md"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
         >
-          {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
-        </button>
-      </form>
+          <h2 className="text-2xl font-bold text-white mb-7">Tạo tài khoản</h2>
+
+          {error && (
+            <div
+              className="text-sm rounded px-4 py-3 mb-5"
+              style={{ background: 'rgba(229,9,20,0.15)', border: '1px solid rgba(229,9,20,0.5)', color: '#ff6b6b' }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="mb-4">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-4 rounded text-white text-sm outline-none transition-all focus:ring-1 focus:ring-white/30"
+              style={{ background: '#333', border: '1px solid transparent' }}
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Tên người dùng (tối thiểu 3 ký tự)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-4 rounded text-white text-sm outline-none transition-all focus:ring-1 focus:ring-white/30"
+              style={{ background: '#333', border: '1px solid transparent' }}
+              required
+              minLength={3}
+            />
+          </div>
+
+          <div className="mb-7">
+            <input
+              type="password"
+              placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-4 rounded text-white text-sm outline-none transition-all focus:ring-1 focus:ring-white/30"
+              style={{ background: '#333', border: '1px solid transparent' }}
+              required
+              minLength={6}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 rounded font-bold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            style={{ background: '#E50914' }}
+          >
+            {loading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
+          </button>
+
+          <p className="text-center mt-6 text-sm" style={{ color: '#808080' }}>
+            Đã có tài khoản?{' '}
+            <Link href="/login" className="font-semibold text-white hover:underline transition-colors">
+              Đăng nhập
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
