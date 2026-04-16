@@ -7,6 +7,7 @@ export type AuthUser = {
   id: string;
   username: string;
   email: string;
+  avatar?: string | null;
   role: string;
 };
 
@@ -14,12 +15,14 @@ type AuthContextValue = {
   user: AuthUser | null;
   login: (user: AuthUser, token: string) => void;
   logout: () => void;
+  updateUser: (partial: Partial<AuthUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   login: () => {},
   logout: () => {},
+  updateUser: () => {},
 });
 
 const STORAGE_KEY = 'auth_user';
@@ -28,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    // Restore user from localStorage if token still valid
     const token = Cookies.get('token');
     if (!token) {
       localStorage.removeItem(STORAGE_KEY);
@@ -54,8 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((partial: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
