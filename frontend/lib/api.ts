@@ -26,6 +26,11 @@ export const authAPI = {
   register: (email: string, username: string, password: string) =>
     api.post('/auth/register', { email, username, password }),
   getProfile: () => api.post('/auth/profile'),
+  getMe: () => api.get('/auth/me'),
+  updateProfile: (data: { username?: string; avatar?: string }) =>
+    api.patch('/auth/profile', data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.patch('/auth/password', data),
 };
 
 // External phim.nguonc.com (proxied by backend)

@@ -27,6 +27,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        avatar: user.avatar ?? null,
         role: user.role,
       },
     };
@@ -41,5 +42,21 @@ export class AuthService {
     });
     return this.login(user);
   }
-}
 
+  async getMe(id: string) {
+    const user = await this.usersService.findById(id);
+    if (!user) throw new UnauthorizedException();
+    const { password, ...rest } = user;
+    return rest;
+  }
+
+  async updateProfile(id: string, data: { username?: string; avatar?: string }) {
+    const updated = await this.usersService.updateProfile(id, data);
+    const { password, ...rest } = updated;
+    return rest;
+  }
+
+  async changePassword(id: string, currentPassword: string, newPassword: string) {
+    return this.usersService.changePassword(id, currentPassword, newPassword);
+  }
+}
