@@ -5,8 +5,6 @@ import Hls from 'hls.js';
 
 interface VideoPlayerProps {
   src: string;
-  onProgress?: (progress: number) => void;
-  initialProgress?: number;
   title?: string;
   episodeLabel?: string;
   onNextEpisode?: () => void;
@@ -24,8 +22,6 @@ function formatTime(seconds: number): string {
 
 export default function VideoPlayer({
   src,
-  onProgress,
-  initialProgress = 0,
   title,
   episodeLabel,
   onNextEpisode,
@@ -48,6 +44,10 @@ export default function VideoPlayer({
   const [isDragging, setIsDragging] = useState(false);
   const [showNextEp, setShowNextEp] = useState(false);
 
+  // Stable ref for onNextEpisode — prevents HLS effect from re-running on prop change
+  const onNextEpisodeRef = useRef(onNextEpisode);
+  useEffect(() => { onNextEpisodeRef.current = onNextEpisode; });
+
   // Show / auto-hide controls
   const showControls = useCallback(() => {
     setControlsVisible(true);
@@ -60,7 +60,7 @@ export default function VideoPlayer({
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) v.play();
+    if (v.paused) v.play().catch(() => {}); // ignore interruption errors
     else v.pause();
   };
 
@@ -130,7 +130,7 @@ export default function VideoPlayer({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // HLS + video events setup
+  // HLS + video events setup — only re-runs when src changes
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -140,16 +140,13 @@ export default function VideoPlayer({
     const onTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       if (video.duration) {
-        const p = video.currentTime / video.duration;
-        onProgress?.(p);
-        // Show next episode suggestion in last 30s
-        if (video.duration - video.currentTime < 30 && onNextEpisode) {
+        if (video.duration - video.currentTime < 30 && onNextEpisodeRef.current) {
           setShowNextEp(true);
         }
       }
     };
     const onDurationChange = () => setDuration(video.duration);
-    const onProgress2 = () => {
+    const onBufferUpdate = () => {
       if (video.buffered.length > 0 && video.duration) {
         setBuffered(video.buffered.end(video.buffered.length - 1) / video.duration);
       }
@@ -161,7 +158,7 @@ export default function VideoPlayer({
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('durationchange', onDurationChange);
-    video.addEventListener('progress', onProgress2);
+    video.addEventListener('progress', onBufferUpdate);
     video.addEventListener('volumechange', onVolumeChange);
     document.addEventListener('fullscreenchange', onFullscreenChange);
 
@@ -170,27 +167,22 @@ export default function VideoPlayer({
       hls.loadSource(src);
       hls.attachMedia(video);
       hlsRef.current = hls;
-
-      if (initialProgress > 0) {
-        video.addEventListener('loadedmetadata', () => {
-          video.currentTime = video.duration * initialProgress;
-        }, { once: true });
-      }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = src;
     }
 
     return () => {
       hlsRef.current?.destroy();
+      hlsRef.current = null;
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('durationchange', onDurationChange);
-      video.removeEventListener('progress', onProgress2);
+      video.removeEventListener('progress', onBufferUpdate);
       video.removeEventListener('volumechange', onVolumeChange);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
     };
-  }, [src, initialProgress, onProgress, onNextEpisode]);
+  }, [src]);
 
   const progress = duration > 0 ? currentTime / duration : 0;
 

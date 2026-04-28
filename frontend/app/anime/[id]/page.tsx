@@ -34,6 +34,26 @@ export default function AnimeDetailPage() {
     },
   });
 
+  /* Recommendations — similar genre (must be before early returns) */
+  const firstGenreSlug = (() => {
+    const cat = filmDetail?.movie?.category ?? {};
+    for (const key of Object.keys(cat)) {
+      const group = cat[key]?.group;
+      const list  = cat[key]?.list;
+      if (/thể loại/i.test(String(group?.name ?? '')) && Array.isArray(list) && list.length > 0) {
+        return String(list[0]?.id ?? '');
+      }
+    }
+    return '';
+  })();
+
+  const recsQuery = useQuery({
+    queryKey: ['recs', firstGenreSlug],
+    queryFn: () => sourceAPI.getFilmsTheLoai(firstGenreSlug, 1).then(r => r.data),
+    enabled: !!firstGenreSlug,
+    staleTime: 10 * 60 * 1000,
+  });
+
   /* ── Loading skeleton ── */
   if (isLoading) {
     return (
@@ -105,26 +125,6 @@ export default function AnimeDetailPage() {
       label: String(it?.name ?? ''),
     }))
     .filter((x: any) => x.episodeNumber !== null);
-
-  /* Recommendations — similar genre */
-  const firstGenreSlug = (() => {
-    const cat = movie?.category ?? {};
-    for (const key of Object.keys(cat)) {
-      const group = cat[key]?.group;
-      const list  = cat[key]?.list;
-      if (/thể loại/i.test(String(group?.name ?? '')) && Array.isArray(list) && list.length > 0) {
-        return String(list[0]?.id ?? '');
-      }
-    }
-    return '';
-  })();
-
-  const recsQuery = useQuery({
-    queryKey: ['recs', firstGenreSlug],
-    queryFn: () => sourceAPI.getFilmsTheLoai(firstGenreSlug, 1).then(r => r.data),
-    enabled: !!firstGenreSlug,
-    staleTime: 10 * 60 * 1000,
-  });
 
   const isFavorited = favoriteStatusQuery.data?.favorited ?? false;
 

@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { SourceService } from './source.service';
 
 @Controller('source')
@@ -43,6 +44,16 @@ export class SourceController {
   @Get('film/:slug')
   getFilmDetail(@Param('slug') slug: string) {
     return this.sourceService.getFilmDetail(slug);
+  }
+
+  @SkipThrottle()
+  @Get('stream/proxy')
+  async proxyStream(@Query('url') url: string, @Req() req: any, @Res() res: any) {
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return res.status(400).json({ error: 'Invalid url' });
+    }
+    const proxyBase = `${req.protocol}://${req.get('host')}/source/stream/proxy`;
+    await this.sourceService.proxyStreamToResponse(url, proxyBase, res);
   }
 }
 

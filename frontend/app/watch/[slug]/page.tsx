@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import Cookies from 'js-cookie';
+import { useQuery } from '@tanstack/react-query';
 
 import VideoPlayer from '@/components/VideoPlayer';
-import AnimeCard from '@/components/AnimeCard';
-import { sourceAPI, userMediaAPI } from '@/lib/api';
+import { sourceAPI, api } from '@/lib/api';
 
 function parseEpisodeNumber(raw: any, fallback = 1): number {
   const n = Number(String(raw ?? '').match(/(\d+)/)?.[1] ?? NaN);
@@ -21,7 +19,6 @@ export default function WatchPage() {
   const filmSlug = params.slug as string;
 
   const episodeNumber = useMemo(() => parseEpisodeNumber(searchParams.get('ep') ?? 1, 1), [searchParams]);
-  const token = Cookies.get('token');
 
   const filmDetailQuery = useQuery({
     queryKey: ['film', filmSlug],
@@ -31,37 +28,6 @@ export default function WatchPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const progressQuery = useQuery({
-    queryKey: ['watch', 'progress', filmSlug, episodeNumber],
-    queryFn: () => userMediaAPI.getProgress({ filmSlug, episodeNumber }).then((r) => r.data),
-    enabled: !!token && !!filmSlug && !!episodeNumber,
-    retry: 0,
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (payload: { filmSlug: string; episodeNumber: number; progress: number }) =>
-      userMediaAPI.updateProgress(payload).then((r) => r.data),
-  });
-
-  const [initialProgress, setInitialProgress] = useState(0);
-  useEffect(() => {
-    if (progressQuery.data?.progress !== undefined) setInitialProgress(progressQuery.data.progress);
-  }, [progressQuery.data?.progress]);
-
-  const lastSavedAtRef = useRef(0);
-  const lastSavedProgressRef = useRef(0);
-
-  const onProgress = (p: number) => {
-    const progress = Math.max(0, Math.min(1, p));
-    if (!token) return;
-    const now = Date.now();
-    const delta = Math.abs(progress - lastSavedProgressRef.current);
-    if (now - lastSavedAtRef.current < 5000 && delta < 0.02) return;
-    lastSavedAtRef.current = now;
-    lastSavedProgressRef.current = progress;
-    updateMutation.mutate({ filmSlug, episodeNumber, progress });
-  };
-
   const movie = filmDetailQuery.data?.movie;
   const episodeItems: any[] = Array.isArray(movie?.episodes) ? movie.episodes?.[0]?.items ?? [] : [];
 
@@ -70,18 +36,18 @@ export default function WatchPage() {
     return match ? {
       episodeNumber,
       label: String(match?.name ?? episodeNumber),
-      videoUrl: match?.m3u8 as string,
+      embedUrl: match?.embed as string | undefined,
+      videoUrl: match?.m3u8 as string | undefined,
     } : null;
   }, [episodeItems, episodeNumber]);
 
-  // Find prev/next episode
   const currentIdx = episodeItems.findIndex((it: any) => parseEpisodeNumber(it?.name) === episodeNumber);
   const nextEpisodeItem = episodeItems[currentIdx + 1] ?? null;
   const nextEpNumber = nextEpisodeItem ? parseEpisodeNumber(nextEpisodeItem?.name) : null;
 
-  function goToNextEpisode() {
+  const goToNextEpisode = useCallback(() => {
     if (nextEpNumber) router.push(`/watch/${filmSlug}?ep=${nextEpNumber}`);
-  }
+  }, [nextEpNumber, filmSlug, router]);
 
   if (filmDetailQuery.isLoading) {
     return (
@@ -97,7 +63,7 @@ export default function WatchPage() {
     );
   }
 
-  if (!movie || !episode?.videoUrl) {
+  if (!movie || (!episode?.embedUrl && !episode?.videoUrl)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
         <div className="text-center">
@@ -119,16 +85,54 @@ export default function WatchPage() {
     <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
 
       {/* ── VIDEO PLAYER — full width ── */}
-      <div className="w-full" style={{ background: '#000' }}>
-        <VideoPlayer
-          src={episode.videoUrl}
-          initialProgress={initialProgress}
-          onProgress={onProgress}
-          title={movie.name}
-          episodeLabel={`Tập ${episodeNumber}`}
-          onBack={() => router.push(`/anime/${filmSlug}`)}
-          onNextEpisode={nextEpNumber ? goToNextEpisode : undefined}
-        />
+      <div className="w-full relative" style={{ background: '#000' }}>
+        {/* Back button + title bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+          pointerEvents: 'none',
+        }}>
+          <button
+            type="button"
+            onClick={() => router.push(`/anime/${filmSlug}`)}
+            style={{
+              pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+              background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(6px)', color: '#ccc', padding: '6px 12px',
+              borderRadius: 4, fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Quay lại
+          </button>
+          <span style={{ pointerEvents: 'none', fontSize: 13, color: '#fff', fontWeight: 600 }}>
+            {movie.name}
+            <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.55)', marginLeft: 8 }}>
+              — Tập {episodeNumber}
+            </span>
+          </span>
+        </div>
+
+        {episode.embedUrl ? (
+          <iframe
+            key={episode.embedUrl}
+            src={episode.embedUrl}
+            style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }}
+            allowFullScreen
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+          />
+        ) : (
+          <VideoPlayer
+            src={`${api.defaults.baseURL}/source/stream/proxy?url=${encodeURIComponent(episode.videoUrl!)}`}
+            title={movie.name}
+            episodeLabel={`Tập ${episodeNumber}`}
+            onBack={() => router.push(`/anime/${filmSlug}`)}
+            onNextEpisode={nextEpNumber ? goToNextEpisode : undefined}
+          />
+        )}
       </div>
 
       {/* ── EPISODE INFO + LIST ── */}

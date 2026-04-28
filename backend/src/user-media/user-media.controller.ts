@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserMediaService } from './user-media.service';
+import { UpdateProgressDto } from './dto/update-progress.dto';
 import type { Request } from 'express';
 
 type AuthUser = {
@@ -37,10 +38,7 @@ export class UserMediaController {
   }
 
   @Post('watch/progress')
-  updateProgress(
-    @Req() req: Request,
-    @Body() body: { filmSlug: string; episodeNumber: number; progress: number },
-  ) {
+  updateProgress(@Req() req: Request, @Body() body: UpdateProgressDto) {
     const userId = this.getUserId(req);
     return this.userMediaService.updateProgress(userId, body.filmSlug, body.episodeNumber, body.progress);
   }
