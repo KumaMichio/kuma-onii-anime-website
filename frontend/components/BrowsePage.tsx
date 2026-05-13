@@ -115,7 +115,7 @@ export default function BrowsePage({ title, subtitle, defaultGenre, defaultCount
     retry: 2,
   });
 
-  const items    = filmsQuery.data?.items ?? [];
+  const items    = (filmsQuery.data?.items ?? []).slice(0, 20);
   const paginate = filmsQuery.data?.paginate;
   const hasFilter = !!(theLoai || quocGia || nam);
 
@@ -252,7 +252,7 @@ export default function BrowsePage({ title, subtitle, defaultGenre, defaultCount
 
         {filmsQuery.isLoading ? (
           <div className="movie-grid">
-            {Array.from({ length: 18 }).map((_, i) => (
+            {Array.from({ length: 20 }).map((_, i) => (
               <div key={i}>
                 <div className="skeleton" style={{ aspectRatio: '2/3', width: '100%', borderRadius: 6 }} />
                 <div className="skeleton" style={{ height: 11, marginTop: 8, width: '60%', borderRadius: 4 }} />

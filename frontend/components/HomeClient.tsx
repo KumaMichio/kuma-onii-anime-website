@@ -169,7 +169,17 @@ export default function HomeClient() {
       if (nam)            return sourceAPI.getFilmsNamPhatHanh(nam, page).then(r => r.data);
       return sourceAPI.getFilmsUpdated(page).then(r => r.data);
     },
-    placeholderData: prev => prev,
+    placeholderData: (prev, prevQuery) => {
+      // Only reuse previous data when paginating within the same query type.
+      // Switching keyword/filter type must show a fresh loading state, not stale data.
+      const prevKey = prevQuery?.queryKey as [string, number, string, string, string, string] | undefined;
+      if (!prevKey) return undefined;
+      const [, , prevKw, prevTl, prevQg, prevNam] = prevKey;
+      if (prevKw === keyword && prevTl === theLoai && prevQg === quocGia && prevNam === nam) {
+        return prev;
+      }
+      return undefined;
+    },
     retry: 2,
   });
 
@@ -197,7 +207,7 @@ export default function HomeClient() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const items    = filmsQuery.data?.items ?? [];
+  const items    = (filmsQuery.data?.items ?? []).slice(0, 20);
   const paginate = filmsQuery.data?.paginate;
 
   // Hero picks the film at heroIdx from the loaded list
@@ -237,7 +247,7 @@ export default function HomeClient() {
      RENDER
   ══════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ background: 'var(--c-bg)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--c-bg)', minHeight: '100vh', marginTop: -64 }}>
 
       {/* ══ HERO BANNER — 65vh, hard-capped ══ */}
       {!hasActiveFilter && (
@@ -546,7 +556,7 @@ export default function HomeClient() {
 
         {/* Grid or states */}
         {filmsQuery.isLoading ? (
-          <GridSkeleton count={12} />
+          <GridSkeleton count={20} />
         ) : filmsQuery.isError ? (
           <div style={{ textAlign: 'center', padding: '64px 0' }}>
             <p style={{ color: 'var(--c-text-muted)', marginBottom: 16 }}>Không tải được danh sách phim.</p>

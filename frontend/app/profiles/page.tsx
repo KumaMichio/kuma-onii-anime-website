@@ -73,7 +73,7 @@ export default function ProfilesPage() {
 
   // ── SAVE USERNAME ────────────────────────────────────────────────────────────
   async function saveUsername() {
-    if (!newUsername.trim() || newUsername.trim() === user.username) {
+    if (!newUsername.trim() || newUsername.trim() === user?.username) {
       setEditing(null);
       return;
     }
@@ -115,8 +115,8 @@ export default function ProfilesPage() {
 
   function cancelEdit() {
     setEditing(null);
-    setNewUsername(user.username);
-    setSelectedColor(user.avatar ?? '#E50914');
+    setNewUsername(user?.username ?? '');
+    setSelectedColor(user?.avatar ?? '#E50914');
     setCurrentPw(''); setNewPw(''); setConfirmPw('');
   }
 

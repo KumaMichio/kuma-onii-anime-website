@@ -21,7 +21,7 @@ export default function RootLayout({
             <ToastProvider>
               {/* Fixed navbar overlays on top — pages control their own top padding */}
               <Navbar />
-              <main>{children}</main>
+              <main style={{ paddingTop: 64 }}>{children}</main>
               <ReactQueryDevtools initialIsOpen={false} />
             </ToastProvider>
           </AuthProvider>

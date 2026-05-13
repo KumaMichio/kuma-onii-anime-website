@@ -58,11 +58,17 @@ export default function AnimeDetailPage() {
   if (isLoading) {
     return (
       <div style={{ background: 'var(--c-bg)', minHeight: '100vh' }}>
-        <div className="skeleton" style={{ height: '55vh', width: '100%' }} />
-        <div className="site-container" style={{ paddingTop: 32 }}>
-          <div className="skeleton" style={{ height: 36, width: '40%', borderRadius: 4, marginBottom: 12 }} />
-          <div className="skeleton" style={{ height: 16, width: '80%', borderRadius: 4, marginBottom: 8 }} />
-          <div className="skeleton" style={{ height: 16, width: '60%', borderRadius: 4 }} />
+        <div className="site-container" style={{ paddingTop: 40, paddingBottom: 64 }}>
+          <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+            <div className="skeleton" style={{ flexShrink: 0, width: 220, aspectRatio: '2/3', borderRadius: 8 }} />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton" style={{ height: 36, width: '55%', borderRadius: 4, marginBottom: 12 }} />
+              <div className="skeleton" style={{ height: 14, width: '30%', borderRadius: 4, marginBottom: 20 }} />
+              <div className="skeleton" style={{ height: 14, width: '100%', borderRadius: 4, marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 14, width: '90%', borderRadius: 4, marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 14, width: '70%', borderRadius: 4 }} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -80,9 +86,8 @@ export default function AnimeDetailPage() {
     );
   }
 
-  const movie        = filmDetail.movie;
-  const backdropUrl  = movie.thumb_url || movie.poster_url;
-  const posterUrl    = movie.poster_url || movie.thumb_url;
+  const movie     = filmDetail.movie;
+  const posterUrl = movie.poster_url || movie.thumb_url;
 
   const episodesServers = Array.isArray(movie?.episodes) ? movie.episodes : [];
   const firstServer     = episodesServers[0];
@@ -133,110 +138,104 @@ export default function AnimeDetailPage() {
   ══════════════════════════════════════════════════════════════════ */
   return (
     <div style={{ background: 'var(--c-bg)', minHeight: '100vh' }}>
+      <div className="site-container" style={{ paddingTop: 48, paddingBottom: 80 }}>
 
-      {/* ── HERO BACKDROP — 55vh, capped ── */}
-      <div className="hero" style={{ height: '55vh', maxHeight: 560 }}>
-        {backdropUrl && (
-          <img src={backdropUrl} alt={movie.name} className="hero__bg" />
-        )}
-        {/* Dual-layer gradient */}
-        <div className="hero__overlay" />
-
-        {/* Bottom bleed */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 140, background: 'linear-gradient(to top, var(--c-bg), transparent)', zIndex: 2, pointerEvents: 'none' }} />
-
-        {/* Back button — z-index 5, above everything */}
+        {/* ── Back button ── */}
         <button
           type="button"
           onClick={() => router.back()}
           style={{
-            position: 'absolute', top: 80, left: 'max(16px, calc((100vw - 1280px)/2 + 48px))',
-            zIndex: 10, display: 'flex', alignItems: 'center', gap: 6,
-            background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(8px)', color: '#b3b3b3', padding: '8px 14px',
-            borderRadius: 4, fontSize: 13, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            color: '#999', padding: '7px 14px', borderRadius: 4,
+            fontSize: 13, cursor: 'pointer', marginBottom: 40,
+            transition: 'color 0.15s, background 0.15s',
           }}
-          onMouseOver={e => (e.currentTarget as HTMLButtonElement).style.color = '#fff'}
-          onMouseOut={e => (e.currentTarget as HTMLButtonElement).style.color = '#b3b3b3'}
+          onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.color = '#fff'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)'; }}
+          onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.color = '#999'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; }}
         >
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Quay lại
         </button>
-      </div>
 
-      {/* ── CONTENT — max-width 1280px, centered ── */}
-      <div className="site-container" style={{ paddingTop: 8, paddingBottom: 64 }}>
+        {/* ── Main info: poster + details ── */}
+        <div style={{ display: 'flex', gap: 'clamp(24px, 4vw, 56px)', alignItems: 'flex-start', marginBottom: 64 }}>
 
-        {/* Two-column layout: poster | info */}
-        <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
-
-          {/* Poster — 160px fixed, floats up above hero line */}
+          {/* Poster */}
           {posterUrl && (
             <div style={{
               flexShrink: 0,
-              width: 160,
-              marginTop: -80,           /* pull up to overlap hero bottom */
-              position: 'relative',
-              zIndex: 5,
-              borderRadius: 6,
+              width: 'clamp(180px, 22vw, 300px)',
+              borderRadius: 10,
               overflow: 'hidden',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.75)',
               border: '1px solid rgba(255,255,255,0.08)',
-              display: 'none',          /* hidden on mobile */
-            }}
-            className="md-poster"
-            >
-              <img src={posterUrl} alt={movie.name} style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', display: 'block' }} />
+            }}>
+              <img
+                src={posterUrl}
+                alt={movie.name}
+                style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', display: 'block' }}
+              />
             </div>
           )}
 
-          {/* Info panel */}
-          <div style={{ flex: 1, minWidth: 0, paddingTop: 16 }}>
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 0, paddingTop: 8 }}>
 
             {/* Title */}
-            <h1 style={{ fontSize: 'clamp(22px, 4vw, 38px)', fontWeight: 900, color: '#fff', margin: '0 0 4px', lineHeight: 1.15 }}>
+            <h1 style={{ fontSize: 'clamp(22px, 3vw, 42px)', fontWeight: 900, color: '#fff', margin: '0 0 8px', lineHeight: 1.15 }}>
               {movie.name}
             </h1>
             {movie.original_name && movie.original_name !== movie.name && (
-              <p style={{ fontSize: 13, color: 'var(--c-text-muted)', margin: '0 0 14px' }}>{movie.original_name}</p>
+              <p style={{ fontSize: 14, color: '#555', margin: '0 0 20px', fontStyle: 'italic' }}>{movie.original_name}</p>
             )}
 
-            {/* Meta badges — always visible, below title, not overlapping anything */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {/* Meta badges */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
               {movie.quality && (
-                <span style={{ padding: '3px 10px', fontSize: 11, fontWeight: 700, border: '1px solid #E50914', color: '#E50914', borderRadius: 3 }}>
+                <span style={{ padding: '4px 12px', fontSize: 12, fontWeight: 700, border: '1px solid #E50914', color: '#E50914', borderRadius: 4 }}>
                   {movie.quality}
                 </span>
               )}
               {movie.current_episode && (
-                <span style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: 3 }}>
+                <span style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#ddd', borderRadius: 4 }}>
                   {movie.current_episode}
                 </span>
               )}
               {movie.language && (
-                <span style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: 3 }}>
+                <span style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#ddd', borderRadius: 4 }}>
                   {movie.language}
+                </span>
+              )}
+              {movie.year && (
+                <span style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: '#ddd', borderRadius: 4 }}>
+                  {movie.year}
                 </span>
               )}
             </div>
 
             {/* Description */}
             {movie.description && (
-              <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--c-text-sub)', marginBottom: 24, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              <p style={{
+                fontSize: 15, lineHeight: 1.8, color: '#aaa',
+                marginBottom: 32,
+                display: '-webkit-box', WebkitLineClamp: 6,
+                WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
                 {movie.description}
               </p>
             )}
 
-            {/* CTA buttons — z-index 10, always above images */}
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24, position: 'relative', zIndex: 10 }}>
+            {/* CTA buttons */}
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 28 }}>
               <button
                 type="button"
                 className="btn-primary"
                 onClick={() => router.push(`/watch/${movie.slug}?ep=${defaultEpNumber}`)}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z" /></svg>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z" /></svg>
                 Xem ngay
               </button>
 
@@ -247,18 +246,19 @@ export default function AnimeDetailPage() {
                   disabled={toggleFavoriteMutation.isPending}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
-                    padding: '11px 22px', borderRadius: 4, border: isFavorited ? '1px solid #E50914' : '1px solid rgba(255,255,255,0.2)',
-                    background: isFavorited ? 'rgba(229,9,20,0.15)' : 'rgba(255,255,255,0.08)',
-                    color: isFavorited ? '#E50914' : '#fff',
-                    fontSize: 15, fontWeight: 600, cursor: 'pointer', zIndex: 10,
+                    padding: '11px 22px', borderRadius: 4, cursor: 'pointer',
+                    border: isFavorited ? '1px solid #E50914' : '1px solid rgba(255,255,255,0.15)',
+                    background: isFavorited ? 'rgba(229,9,20,0.12)' : 'rgba(255,255,255,0.06)',
+                    color: isFavorited ? '#E50914' : '#ccc',
+                    fontSize: 15, fontWeight: 600,
                   }}
                 >
                   {isFavorited ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#E50914">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#E50914">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   ) : (
-                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                   )}
@@ -270,7 +270,7 @@ export default function AnimeDetailPage() {
                   className="btn-secondary"
                   onClick={() => router.push('/login')}
                 >
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                   Đăng nhập để yêu thích
@@ -284,15 +284,21 @@ export default function AnimeDetailPage() {
                 <button
                   key={`${chip.typeParam}:${chip.slug}:${idx}`}
                   type="button"
-                  onClick={() => { const p = new URLSearchParams(); p.set('page', '1'); p.set(chip.typeParam, chip.slug); router.push(`/?${p.toString()}`); }}
+                  onClick={() => {
+                    const p = new URLSearchParams();
+                    p.set('page', '1');
+                    p.set(chip.typeParam, chip.slug);
+                    router.push(`/?${p.toString()}`);
+                  }}
                   style={{
                     padding: '5px 14px', borderRadius: 20,
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.07)',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'var(--c-text-muted)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    color: '#888', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
                   }}
-                  onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#E50914'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#E50914'; }}
-                  onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--c-text-muted)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                  onMouseOver={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#E50914'; b.style.color = '#fff'; b.style.borderColor = '#E50914'; }}
+                  onMouseOut={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = 'rgba(255,255,255,0.07)'; b.style.color = '#888'; b.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                 >
                   {chip.name}
                 </button>
@@ -301,81 +307,74 @@ export default function AnimeDetailPage() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '40px 0' }} />
-
-        {/* ── EPISODE LIST ── */}
+        {/* ── Episode list ── */}
         {episodes.length > 0 && (
-          <div style={{ marginBottom: 48 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 16 }}>
-              Danh sách tập
-              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--c-text-muted)', marginLeft: 8 }}>({episodes.length} tập)</span>
-            </h3>
-
-            {/* Episode buttons — CSS grid, auto-fill so they never overflow */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))',
-              gap: 8,
-            }}>
-              {episodes.map((ep: any) => {
-                const isActive = ep.episodeNumber === defaultEpNumber;
-                return (
-                  <button
-                    key={ep.episodeNumber}
-                    type="button"
-                    onClick={() => router.push(`/watch/${movie.slug}?ep=${ep.episodeNumber}`)}
-                    style={{
-                      padding: '10px 4px', textAlign: 'center', borderRadius: 4,
-                      background: isActive ? '#E50914' : 'rgba(255,255,255,0.07)',
-                      color: isActive ? '#fff' : '#b3b3b3',
-                      fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-                    }}
-                    onMouseOver={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; } }}
-                    onMouseOut={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.color = '#b3b3b3'; } }}
-                  >
-                    {ep.episodeNumber}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── RECOMMENDATIONS ── */}
-        {(recsQuery.data?.items?.length ?? 0) > 0 && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0 }}>Phim tương tự</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => recRowRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <button type="button" onClick={() => recRowRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                </button>
+          <>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 36 }} />
+            <div style={{ marginBottom: 56 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 16 }}>
+                Danh sách tập
+                <span style={{ fontSize: 13, fontWeight: 400, color: '#555', marginLeft: 10 }}>({episodes.length} tập)</span>
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))', gap: 8 }}>
+                {episodes.map((ep: any) => {
+                  const isActive = ep.episodeNumber === defaultEpNumber;
+                  return (
+                    <button
+                      key={ep.episodeNumber}
+                      type="button"
+                      onClick={() => router.push(`/watch/${movie.slug}?ep=${ep.episodeNumber}`)}
+                      style={{
+                        padding: '11px 4px', textAlign: 'center', borderRadius: 4,
+                        background: isActive ? '#E50914' : 'rgba(255,255,255,0.07)',
+                        color: isActive ? '#fff' : '#888',
+                        fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+                        transition: 'background 0.12s, color 0.12s',
+                      }}
+                      onMouseOver={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; } }}
+                      onMouseOut={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.color = '#888'; } }}
+                    >
+                      {ep.episodeNumber}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          </>
+        )}
 
-            {/* Horizontal carousel — cards fixed 160px, images always clipped */}
-            <div ref={recRowRef} className="nf-row">
-              {(recsQuery.data?.items ?? [])
-                .filter((f: any) => f.slug !== movie.slug)
-                .slice(0, 16)
-                .map((film: any) => (
-                  <div key={film.slug} className="nf-row-card">
-                    <AnimeCard anime={{ id: film.slug, title: film.name, poster: film.poster_url }} />
-                  </div>
-                ))}
+        {/* ── Recommendations ── */}
+        {(recsQuery.data?.items?.length ?? 0) > 0 && (
+          <>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 32 }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0 }}>Phim tương tự</h3>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" onClick={() => recRowRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
+                    style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button type="button" onClick={() => recRowRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
+                    style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div ref={recRowRef} className="nf-row">
+                {(recsQuery.data?.items ?? [])
+                  .filter((f: any) => f.slug !== movie.slug)
+                  .slice(0, 16)
+                  .map((film: any) => (
+                    <div key={film.slug} className="nf-row-card">
+                      <AnimeCard anime={{ id: film.slug, title: film.name, poster: film.poster_url }} />
+                    </div>
+                  ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
-
-      {/* Inline style to show poster on md+ */}
-      <style>{`.md-poster { display: none !important; } @media(min-width:768px){ .md-poster { display: block !important; } }`}</style>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
@@ -12,67 +12,94 @@ function parseEpisodeNumber(raw: any, fallback = 1): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-export default function WatchPage() {
-  const router = useRouter();
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const filmSlug = params.slug as string;
+/* ── Shared style tokens ── */
+const S = {
+  bg:        '#0a0a0a',
+  surface:   'rgba(255,255,255,0.05)',
+  border:    'rgba(255,255,255,0.08)',
+  muted:     '#666',
+  red:       '#E50914',
+  redDim:    'rgba(229,9,20,0.15)',
+  redBorder: 'rgba(229,9,20,0.3)',
+};
 
-  const episodeNumber = useMemo(() => parseEpisodeNumber(searchParams.get('ep') ?? 1, 1), [searchParams]);
+export default function WatchPage() {
+  const router      = useRouter();
+  const params      = useParams();
+  const searchParams = useSearchParams();
+  const filmSlug    = params.slug as string;
+
+  const episodeNumber = useMemo(
+    () => parseEpisodeNumber(searchParams.get('ep') ?? 1, 1),
+    [searchParams],
+  );
 
   const filmDetailQuery = useQuery({
     queryKey: ['film', filmSlug],
-    queryFn: () => sourceAPI.getFilmDetail(filmSlug).then((r) => r.data),
-    enabled: !!filmSlug,
-    retry: 2,
+    queryFn:  () => sourceAPI.getFilmDetail(filmSlug).then((r) => r.data),
+    enabled:  !!filmSlug,
+    retry:    2,
     staleTime: 5 * 60 * 1000,
   });
 
-  const movie = filmDetailQuery.data?.movie;
-  const episodeItems: any[] = Array.isArray(movie?.episodes) ? movie.episodes?.[0]?.items ?? [] : [];
+  const movie        = filmDetailQuery.data?.movie;
+  const episodeItems: any[] = Array.isArray(movie?.episodes)
+    ? movie.episodes?.[0]?.items ?? []
+    : [];
 
   const episode = useMemo(() => {
-    const match = episodeItems.find((it: any) => parseEpisodeNumber(it?.name) === episodeNumber);
-    return match ? {
-      episodeNumber,
-      label: String(match?.name ?? episodeNumber),
-      embedUrl: match?.embed as string | undefined,
-      videoUrl: match?.m3u8 as string | undefined,
-    } : null;
+    const match = episodeItems.find(
+      (it: any) => parseEpisodeNumber(it?.name) === episodeNumber,
+    );
+    return match
+      ? {
+          episodeNumber,
+          label:    String(match?.name ?? episodeNumber),
+          embedUrl: match?.embed as string | undefined,
+          videoUrl: match?.m3u8  as string | undefined,
+        }
+      : null;
   }, [episodeItems, episodeNumber]);
 
-  const currentIdx = episodeItems.findIndex((it: any) => parseEpisodeNumber(it?.name) === episodeNumber);
+  const currentIdx      = episodeItems.findIndex((it: any) => parseEpisodeNumber(it?.name) === episodeNumber);
   const nextEpisodeItem = episodeItems[currentIdx + 1] ?? null;
-  const nextEpNumber = nextEpisodeItem ? parseEpisodeNumber(nextEpisodeItem?.name) : null;
+  const nextEpNumber    = nextEpisodeItem ? parseEpisodeNumber(nextEpisodeItem?.name) : null;
+
+  const [isEdge, setIsEdge] = useState(false);
+  useEffect(() => { setIsEdge(/Edg\//.test(navigator.userAgent)); }, []);
 
   const goToNextEpisode = useCallback(() => {
     if (nextEpNumber) router.push(`/watch/${filmSlug}?ep=${nextEpNumber}`);
   }, [nextEpNumber, filmSlug, router]);
 
+  /* ── Loading ── */
   if (filmDetailQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
-        <div className="text-center">
-          <div
-            className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4"
-            style={{ borderColor: '#E50914', borderTopColor: 'transparent' }}
-          />
-          <p className="text-sm" style={{ color: '#808080' }}>Đang tải phim...</p>
+      <div style={{ minHeight: '100vh', background: S.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%',
+            border: `2px solid ${S.red}`, borderTopColor: 'transparent',
+            margin: '0 auto 12px',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <p style={{ fontSize: 13, color: S.muted }}>Đang tải phim...</p>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
+  /* ── Not found ── */
   if (!movie || (!episode?.embedUrl && !episode?.videoUrl)) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
-        <div className="text-center">
-          <p className="text-white font-semibold mb-3">Không tìm thấy tập phim</p>
+      <div style={{ minHeight: '100vh', background: S.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: '#fff', fontWeight: 700, marginBottom: 12 }}>Không tìm thấy tập phim</p>
           <button
             type="button"
-            className="text-sm underline hover:text-white transition-colors"
-            style={{ color: '#808080' }}
             onClick={() => router.push(`/anime/${filmSlug}`)}
+            style={{ fontSize: 13, color: S.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
           >
             Về trang phim
           </button>
@@ -82,37 +109,59 @@ export default function WatchPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
+    <div style={{ minHeight: '100vh', background: S.bg }}>
 
-      {/* ── VIDEO PLAYER — full width ── */}
-      <div className="w-full relative" style={{ background: '#000' }}>
-        {/* Back button + title bar */}
+      {/* ── Edge warning banner ── */}
+      {isEdge && (
+        <div style={{
+          background: 'rgba(229,9,20,0.1)', borderBottom: `1px solid ${S.redBorder}`,
+          padding: '10px 20px', display: 'flex', alignItems: 'flex-start', gap: 10,
+          fontSize: 13, color: '#ffaaaa',
+        }}>
+          <svg width="15" height="15" style={{ flexShrink: 0, marginTop: 1 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>
+            <strong>Microsoft Edge</strong> có thể chặn video do Tracking Prevention.
+            Hãy vào <strong>edge://settings/privacy</strong> → đặt thành <strong>Basic</strong>,
+            hoặc dùng <strong>Chrome / Firefox</strong>.
+          </span>
+        </div>
+      )}
+
+      {/* ── VIDEO — full width, black bg ── */}
+      <div style={{ width: '100%', background: '#000', position: 'relative' }}>
+
+        {/* Back + title overlay */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
-          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
           pointerEvents: 'none',
         }}>
           <button
             type="button"
             onClick={() => router.push(`/anime/${filmSlug}`)}
             style={{
-              pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-              background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(6px)', color: '#ccc', padding: '6px 12px',
-              borderRadius: 4, fontSize: 13, cursor: 'pointer',
+              pointerEvents: 'auto',
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px',
+              background: 'rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              backdropFilter: 'blur(6px)',
+              borderRadius: 4, cursor: 'pointer',
+              color: '#bbb', fontSize: 12,
             }}
           >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Quay lại
           </button>
-          <span style={{ pointerEvents: 'none', fontSize: 13, color: '#fff', fontWeight: 600 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
             {movie.name}
-            <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.55)', marginLeft: 8 }}>
-              — Tập {episodeNumber}
-            </span>
+            <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.5)', marginLeft: 6 }}>· Tập {episodeNumber}</span>
           </span>
         </div>
 
@@ -122,7 +171,9 @@ export default function WatchPage() {
             src={episode.embedUrl}
             style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }}
             allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; web-share"
+            referrerPolicy="no-referrer-when-downgrade"
+            scrolling="no"
           />
         ) : (
           <VideoPlayer
@@ -135,92 +186,156 @@ export default function WatchPage() {
         )}
       </div>
 
-      {/* ── EPISODE INFO + LIST ── */}
-      <div className="px-6 md:px-12 py-8">
+      {/* Browser hint */}
+      {!isEdge && (
+        <div style={{
+          padding: '7px 16px',
+          background: 'rgba(255,255,255,0.02)',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 11, color: '#3a3a3a',
+        }}>
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ flexShrink: 0 }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Nếu video không phát, hãy thử Chrome / Firefox và tắt Ad Blocker.
+        </div>
+      )}
 
-        {/* Current episode info */}
-        <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+      {/* ── CONTENT — max-width container ── */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(16px, 3vw, 32px) clamp(12px, 4vw, 32px)' }}>
+
+        {/* Film title + episode + detail link */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <div>
-            <h2 className="text-xl font-black text-white">{movie.name}</h2>
-            <p className="text-sm mt-0.5" style={{ color: '#808080' }}>Tập {episodeNumber}</p>
+            <h2 style={{ fontSize: 'clamp(15px, 2.5vw, 20px)', fontWeight: 900, color: '#fff', margin: 0 }}>
+              {movie.name}
+            </h2>
+            <p style={{ fontSize: 13, color: S.muted, marginTop: 4 }}>Tập {episodeNumber}</p>
           </div>
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-white transition-all hover:bg-white/10"
-            style={{ background: 'rgba(255,255,255,0.08)' }}
             onClick={() => router.push(`/anime/${filmSlug}`)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px',
+              background: S.surface,
+              border: `1px solid ${S.border}`,
+              borderRadius: 6, cursor: 'pointer',
+              color: '#ccc', fontSize: 13, fontWeight: 500,
+              flexShrink: 0,
+            }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Chi tiết phim
           </button>
         </div>
 
-        {/* Next episode CTA */}
+        {/* ── Next episode CTA ── */}
         {nextEpNumber && (
-          <div
-            className="flex items-center justify-between px-5 py-4 rounded-lg mb-6 cursor-pointer transition-all hover:opacity-90"
-            style={{ background: 'rgba(229,9,20,0.15)', border: '1px solid rgba(229,9,20,0.3)' }}
+          <button
+            type="button"
             onClick={goToNextEpisode}
+            style={{
+              width: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px',
+              background: S.redDim,
+              border: `1px solid ${S.redBorder}`,
+              borderRadius: 8, cursor: 'pointer',
+              marginBottom: 24,
+              transition: 'opacity 0.15s',
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.85')}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
           >
-            <div>
-              <div className="text-xs font-medium mb-0.5" style={{ color: '#E50914' }}>Tiếp theo</div>
-              <div className="text-sm font-bold text-white">Tập {nextEpNumber}</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: S.red, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Tiếp theo
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Tập {nextEpNumber}</div>
             </div>
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: '#E50914' }}
-            >
-              <svg className="w-4 h-4 text-white translate-x-0.5" viewBox="0 0 24 24" fill="currentColor">
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: S.red,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}>
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-          </div>
+          </button>
         )}
 
-        {/* Episode list */}
+        {/* ── Episode list ── */}
         {episodeItems.length > 1 && (
-          <>
-            <h3 className="text-base font-bold text-white mb-4">
-              Danh sách tập
-              <span className="ml-2 text-sm font-normal" style={{ color: '#808080' }}>({episodeItems.length} tập)</span>
-            </h3>
-            <div className="grid grid-cols-8 sm:grid-cols-12 md:grid-cols-16 lg:grid-cols-20 gap-2 mb-10">
+          <div>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Danh sách tập</h3>
+              <span style={{
+                fontSize: 11, fontWeight: 600, color: S.muted,
+                background: S.surface, border: `1px solid ${S.border}`,
+                borderRadius: 10, padding: '2px 8px',
+              }}>
+                {episodeItems.length} tập
+              </span>
+            </div>
+
+            {/* Grid — auto-fill 48px columns */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))',
+              gap: 6,
+            }}>
               {episodeItems.map((it: any) => {
-                const n = parseEpisodeNumber(it?.name);
+                const n        = parseEpisodeNumber(it?.name);
                 const isActive = n === episodeNumber;
                 return (
                   <button
                     key={it?.slug ?? n}
                     type="button"
-                    className="py-2.5 text-center rounded text-sm font-semibold transition-all"
+                    onClick={() => router.push(`/watch/${filmSlug}?ep=${n}`)}
                     style={{
-                      background: isActive ? '#E50914' : 'rgba(255,255,255,0.07)',
-                      color: isActive ? '#fff' : '#808080',
+                      padding: '9px 4px',
+                      textAlign: 'center',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: isActive ? `1px solid ${S.red}` : `1px solid ${S.border}`,
+                      background: isActive ? S.red : S.surface,
+                      color: isActive ? '#fff' : S.muted,
+                      transition: 'background 0.12s, color 0.12s, border-color 0.12s',
                     }}
                     onMouseOver={(e) => {
                       if (!isActive) {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.15)';
+                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)';
                         (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.2)';
                       }
                     }}
                     onMouseOut={(e) => {
                       if (!isActive) {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
-                        (e.currentTarget as HTMLButtonElement).style.color = '#808080';
+                        (e.currentTarget as HTMLButtonElement).style.background = S.surface;
+                        (e.currentTarget as HTMLButtonElement).style.color = S.muted;
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = S.border;
                       }
                     }}
-                    onClick={() => router.push(`/watch/${filmSlug}?ep=${n}`)}
                   >
                     {n}
                   </button>
                 );
               })}
             </div>
-          </>
+          </div>
         )}
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
